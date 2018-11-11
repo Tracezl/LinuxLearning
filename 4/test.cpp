@@ -18,17 +18,17 @@ using namespace std;
 #define QUIT_MSG 1
 #define RESULT_MSG 2
 
-#define CALCULATE_THREAD_NUM 8
+#define CALCULATE_THREAD_NUM 4
 #define CALCULATE_REQUEST_NUM 1000
 
-class CLAdder;
-class CLControl;
-class CLUser;
+class CLAdderObserver;
+class CLControlObserver;
+class CLUserObserver;
 
 class CLAddMessage : public CLMessage
 {
 public:
-    	friend class CLAdder;
+    	friend class CLAdderObserver;
 
 	CLAddMessage(int Op1, int Op2):CLMessage(ADD_MSG)
 	{
@@ -48,7 +48,7 @@ public:
 class CLResultMessage : public CLMessage
 {
 public:
-	friend class CLUser;
+	friend class CLUserObserver;
 	
 	CLResultMessage(int Op1, int Op2, int result) : CLMessage(RESULT_MSG)
 	{
@@ -79,22 +79,22 @@ public:
 	}
 };
 
-class CLAdder : public CLMessageObserver
+class CLAdderObserver : public CLMessageObserver
 {
 public:
-	CLAdder()
+	CLAdderObserver()
 	{
 	}
 
-	virtual ~CLAdder()
+	virtual ~CLAdderObserver()
 	{
 	}
 
 	virtual CLStatus Initialize(CLMessageLoopManager *pMessageLoop, void* pContext)
 	{
-		pMessageLoop->Register(ADD_MSG, (CallBackForMessageLoop)(&CLAdder::On_AddMsg));
-		pMessageLoop->Register(QUIT_MSG, (CallBackForMessageLoop)(&CLAdder::On_QuitMsg));
-		cout << "Add a CLAdder" << endl;
+		pMessageLoop->Register(ADD_MSG, (CallBackForMessageLoop)(&CLAdderObserver::On_AddMsg));
+		pMessageLoop->Register(QUIT_MSG, (CallBackForMessageLoop)(&CLAdderObserver::On_QuitMsg));
+		cout << "Add a CLAdderObserver" << endl;
 		return CLStatus(0, 0);
 	}
 
@@ -113,25 +113,25 @@ public:
 	}
 };
 
-class CLControl : public CLMessageObserver
+class CLControlObserver : public CLMessageObserver
 {
 private:
 	int request_count;
 
 public:
-	CLControl()
+	CLControlObserver()
 	{
 		request_count = 0;
 	}
 
-	virtual ~CLControl()
+	virtual ~CLControlObserver()
 	{
 	}
 
 	virtual CLStatus Initialize(CLMessageLoopManager *pMessageLoop, void* pContext)
 	{
-		pMessageLoop->Register(ADD_MSG, (CallBackForMessageLoop)(&CLControl::On_AddMsg));
-		pMessageLoop->Register(QUIT_MSG, (CallBackForMessageLoop)(&CLControl::On_QuitMsg));
+		pMessageLoop->Register(ADD_MSG, (CallBackForMessageLoop)(&CLControlObserver::On_AddMsg));
+		pMessageLoop->Register(QUIT_MSG, (CallBackForMessageLoop)(&CLControlObserver::On_QuitMsg));
 
 		cout << "control" << endl;
 		return CLStatus(0, 0);
@@ -156,26 +156,26 @@ public:
 	}
 };
 
-class CLUser : public CLMessageObserver
+class CLUserObserver : public CLMessageObserver
 {
 private:
 	int request_count;
 
 public:
-	CLUser() 
+	CLUserObserver() 
 	{
 		request_count = 0;
 	}
 
-	virtual ~CLUser()
+	virtual ~CLUserObserver()
 	{
 	}
 
 	virtual CLStatus Initialize(CLMessageLoopManager *pMessageLoop, void* pContext)
 	{
 		int i = 9;
-		pMessageLoop->Register(RESULT_MSG, (CallBackForMessageLoop)(&CLUser::On_ResultMsg));
-		pMessageLoop->Register(QUIT_MSG, (CallBackForMessageLoop)(&CLUser::On_QuitMsg));
+		pMessageLoop->Register(RESULT_MSG, (CallBackForMessageLoop)(&CLUserObserver::On_ResultMsg));
+		pMessageLoop->Register(QUIT_MSG, (CallBackForMessageLoop)(&CLUserObserver::On_QuitMsg));
 		cout << "user" << endl;
 		for(i = 0; i < CALCULATE_REQUEST_NUM; i++)//用户线程向主控线程发送计算请求
 			CLExecutiveNameServer::PostExecutiveMessage("control", new CLAddMessage(i, 1));
@@ -222,13 +222,13 @@ int main()
 	for (i = 0; i < CALCULATE_THREAD_NUM; i++)//创建8个计算线程，并启动
 	{
 		sprintf(buffer,"adder%d",i);
-		cal_thread[i] = new CLThreadProxy(new CLAdder, buffer, true);
+		cal_thread[i] = new CLThreadProxy(new CLAdderObserver, buffer, true);
 		cal_thread[i]->Run(0);
 	}
-	control = new CLThreadProxy(new CLControl, "control" ,true);//创建一个主控线程，并启动
+	control = new CLThreadProxy(new CLControlObserver, "control" ,true);//创建一个主控线程，并启动
 	control->Run(0);
 	
-	user = new CLNonThreadProxy(new CLUser, "user");//创建一个用户线程，并启动
+	user = new CLNonThreadProxy(new CLUserObserver, "user");//创建一个用户线程，并启动
 	user->Run(0);
 	return 0;
 }
